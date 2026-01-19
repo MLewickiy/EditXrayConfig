@@ -34,5 +34,36 @@ vless://<USER_ID>@<HOST>:<PORT>?type=<NETWORK>&security=<SECURITY>&pbk=<PUBLIC_K
 - Кнопки с визуальной подсветкой и hover-эффектом.
 ### Дополнительно
 - Минимизирует риск ошибок при редактировании конфигурации вручную.
+### Установка и запуск
+### 1. Клонируем репозиторий
+````
+git clone https://github.com/<ваш-username>/xray-config-editor.git
+cd xray-config-editor
+````
+### 2. Создаем виртуальное окружение (рекомендовано)
+````
+# Устанавливаем venv, если ещё не установлен
+sudo apt update
+sudo apt install python3.12-venv
+
+# Создаем виртуальное окружение
+python3 -m venv venv
+
+# Активируем окружение
+source venv/bin/activate
+````
+### 3. Устанавливаем зависимости
+````
+pip install PyQt6
+````
+### 4. Запускаем редактор
+````
+python full_xray_editor.py
+````
+- Можно также запускать напрямую без активации окружения:
+````
+./venv/bin/python full_xray_editor.py
+````
+---
 ![Start](https://github.com/MLewickiy/EditXrayConfig/blob/master/pix/start.png)
 ![Start](https://github.com/MLewickiy/EditXrayConfig/blob/master/pix/create.png)

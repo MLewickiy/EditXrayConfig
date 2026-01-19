@@ -6,70 +6,101 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QMessageBox, QScrollArea, QFrame
 )
-from PyQt6.QtGui import QShortcut, QClipboard
-from PyQt6.QtCore import QMimeData
+from PyQt6.QtCore import Qt
 
 
 class FullXrayEditor(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Xray Full Config Editor")
+        self.setWindowTitle("Xray Config Editor")
         self.config_path = None
         self.config_data = None
         self.inputs = {}
         self.label_to_key = {}
 
-        # --- Настройка начального размера окна ---
-        self.resize(200, 500)
-        self.setMinimumSize(400, 500)
+        self.resize(500, 600)
+        self.setMinimumSize(500, 600)
 
         self.init_ui()
+        self.apply_styles()
 
+    # ----------------- UI -----------------
     def init_ui(self):
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(10)
 
-        # Файл конфигурации
+        # --- Файл конфигурации ---
         file_layout = QHBoxLayout()
+        file_layout.setSpacing(10)
         self.file_label = QLabel("Файл не выбран")
+        self.file_label.setStyleSheet("font-weight: bold; color: #000000;")
         select_button = QPushButton("Выбрать config.json")
         select_button.clicked.connect(self.select_file)
+        select_button.setCursor(Qt.CursorShape.PointingHandCursor)
         file_layout.addWidget(self.file_label)
         file_layout.addWidget(select_button)
-        layout.addLayout(file_layout)
+        main_layout.addLayout(file_layout)
 
-        # Кнопка вставки VLESS
+        # --- Кнопка вставки VLESS ---
         paste_button = QPushButton("Вставить из буфера (VLESS)")
         paste_button.clicked.connect(self.paste_vless)
-        layout.addWidget(paste_button)
+        paste_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        main_layout.addWidget(paste_button)
 
-        # Кнопка добавления DNS
-        add_dns_btn = QPushButton("Добавить DNS Server")
-        add_dns_btn.clicked.connect(self.add_dns_field)
-        layout.addWidget(add_dns_btn)
-
-        # Scroll для полей
+        # --- Scroll area для полей ---
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout()
+        self.scroll_layout.setSpacing(8)
+        self.scroll_layout.setContentsMargins(5, 5, 5, 5)
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll.setWidget(self.scroll_content)
-        layout.addWidget(self.scroll)
+        main_layout.addWidget(self.scroll)
 
-        # Кнопка сохранить
+        # --- Кнопка сохранить ---
         save_btn = QPushButton("Сохранить изменения")
         save_btn.clicked.connect(self.save_config)
-        layout.addWidget(save_btn)
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.setStyleSheet(
+            "font-weight: bold; font-size: 14px; background-color: #4CAF50; color: white; padding: 8px; border-radius: 6px;"
+        )
+        main_layout.addWidget(save_btn)
 
-        self.setLayout(layout)
+        self.setLayout(main_layout)
 
-    # ----------------- GUI поля -----------------
+    # ----------------- Поля -----------------
     def add_field(self, label_text, value, key_path):
         frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background-color: #ffffff;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 5px;
+            }
+        """)
         layout = QHBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
         frame.setLayout(layout)
         label = QLabel(label_text)
+        label.setFixedWidth(120)
+        label.setStyleSheet("color: #000000; font-weight: bold;")
         input_field = QLineEdit(str(value))
+        input_field.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 4px;
+                background-color: #ffffff;
+                color: #000000;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+        """)
         layout.addWidget(label)
         layout.addWidget(input_field)
         self.scroll_layout.addWidget(frame)
@@ -77,41 +108,7 @@ class FullXrayEditor(QWidget):
         self.inputs[key_path_tuple] = input_field
         self.label_to_key[label_text] = key_path_tuple
 
-    # ----------------- Добавление нового DNS -----------------
-    def add_dns_field(self):
-        if self.config_data is None:
-            QMessageBox.warning(self, "Ошибка", "Сначала откройте config.json")
-            return
-
-        # Создаем секцию dns, если её нет
-        if "dns" not in self.config_data:
-            self.config_data["dns"] = {"servers": []}
-        if "servers" not in self.config_data["dns"]:
-            self.config_data["dns"]["servers"] = []
-
-        # Вставляем новый DNS в начало списка
-        self.config_data["dns"]["servers"].insert(0, "")
-
-        # Перерисовываем все DNS поля в GUI заново
-        self.refresh_dns_fields()
-
-        # Прокрутка вниз, чтобы увидеть новое поле
-        self.scroll.verticalScrollBar().setValue(self.scroll.verticalScrollBar().maximum())
-
-    # ----------------- Обновление DNS полей -----------------
-    def refresh_dns_fields(self):
-        # Удаляем старые поля DNS из GUI
-        for key_path, widget in list(self.inputs.items()):
-            if len(key_path) >= 3 and key_path[0] == "dns" and key_path[1] == "servers":
-                widget.parent().setParent(None)  # удаляем QFrame
-                del self.inputs[key_path]
-
-        # Создаем новые поля DNS в порядке списка
-        dns_servers = self.config_data.get("dns", {}).get("servers", [])
-        for i, server in enumerate(dns_servers):
-            self.add_field(f"DNS Server {i+1}", server, ["dns", "servers", i])
-
-    # ----------------- Загрузка -----------------
+    # ----------------- Загрузка файла -----------------
     def select_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Выберите config.json", "", "JSON Files (*.json)")
         if path:
@@ -138,7 +135,9 @@ class FullXrayEditor(QWidget):
             self.add_field("Inbound UDP", inbound.get("settings", {}).get("udp", ""), ["inbounds", 0, "settings", "udp"])
 
             # --- DNS Servers ---
-            self.refresh_dns_fields()
+            dns_servers = self.config_data.get("dns", {}).get("servers", [])
+            for i, server in enumerate(dns_servers):
+                self.add_field(f"DNS Server {i+1}", server, ["dns", "servers", i])
 
             # --- Outbounds ---
             outbound = self.config_data.get("outbounds", [{}])[0]
@@ -164,13 +163,11 @@ class FullXrayEditor(QWidget):
             self.add_field("Fingerprint", reality.get("fingerprint", ""), ["outbounds", 0, "streamSettings", "realitySettings", "fingerprint"])
             self.add_field("SPX", reality.get("spx", ""), ["outbounds", 0, "streamSettings", "realitySettings", "spx"])
 
-            # --- Увеличение окна вниз после загрузки файла ---
-            self.resize(self.width(), self.height() + 150)
-
-            QMessageBox.information(self, "Готово", "Все поля загружены для редактирования!")
+            # --- Диалоговое окно с черным текстом ---
+            self.show_message("Готово", "Все поля загружены для редактирования!")
 
         except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить config.json:\n{e}")
+            self.show_message("Ошибка", f"Не удалось загрузить config.json:\n{e}", icon=QMessageBox.Icon.Critical)
 
     # ----------------- Сохранение -----------------
     def set_nested(self, data, key_path, value):
@@ -184,7 +181,7 @@ class FullXrayEditor(QWidget):
             try:
                 d[key_path[-1]] = int(str(value).strip())
             except ValueError:
-                QMessageBox.warning(None, "Ошибка", f"Поле {key_path[-1]} должно быть числом")
+                self.show_message("Ошибка", f"Поле {key_path[-1]} должно быть числом", icon=QMessageBox.Icon.Warning)
                 return
         else:
             d[key_path[-1]] = value
@@ -195,58 +192,88 @@ class FullXrayEditor(QWidget):
                 self.set_nested(self.config_data, list(key_path), widget.text())
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config_data, f, indent=4)
-            QMessageBox.information(self, "Готово", "Изменения сохранены!")
+            self.show_message("Готово", "Изменения сохранены!")
         except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить изменения:\n{e}")
+            self.show_message("Ошибка", f"Не удалось сохранить изменения:\n{e}", icon=QMessageBox.Icon.Critical)
 
     # ----------------- Вставка VLESS -----------------
     def paste_vless(self):
         clipboard = QApplication.clipboard()
         vless_url = clipboard.text().strip()
         if not vless_url.startswith("vless://"):
-            QMessageBox.warning(self, "Ошибка", "В буфере нет ссылки VLESS")
+            self.show_message("Ошибка", "В буфере нет ссылки VLESS", icon=QMessageBox.Icon.Warning)
             return
 
         try:
             scheme, rest = vless_url.split("://", 1)
-            user_host, params_hash = rest.split("@", 1)
-            user_id = user_host
-            host_port, params = params_hash.split("?", 1)
-            if "#" in params:
-                query_string, name = params.split("#", 1)
+            user_host, host_port_and_params = rest.split("@", 1)
+
+            if "?" in host_port_and_params:
+                host_port, query_string_hash = host_port_and_params.split("?", 1)
             else:
-                query_string, name = params, ""
+                host_port, query_string_hash = host_port_and_params, ""
+
+            query_string = query_string_hash.split("#")[0] if "#" in query_string_hash else query_string_hash
+            query = urllib.parse.parse_qs(query_string)
 
             if ":" in host_port:
                 host, port = host_port.split(":", 1)
             else:
                 host, port = host_port, ""
 
-            query = urllib.parse.parse_qs(query_string)
-
             mapping = {
-                "User ID": user_id,
+                "User ID": user_host,
                 "VNext Address": host,
                 "VNext Port": port,
-                "Network": query.get("type", ["tcp"])[0],
-                "Security": query.get("security", [""])[0],
-                "PublicKey": query.get("pbk", [""])[0],
-                "Fingerprint": query.get("fp", [""])[0],
-                "ServerName": query.get("sni", [""])[0],
-                "ShortID": query.get("sid", [""])[0],
-                "SPX": query.get("spx", [""])[0],
-                "User Flow": "",
-                "User Encryption": "none",
-                "Outbound Protocol": "vless"
+                "Network": query.get("type", [None])[0],
+                "Security": query.get("security", [None])[0],
+                "PublicKey": query.get("pbk", [None])[0],
+                "Fingerprint": query.get("fp", [None])[0],
+                "ServerName": query.get("sni", [None])[0],
+                "ShortID": query.get("sid", [None])[0],
+                "SPX": query.get("spx", [None])[0],
             }
 
             for label, value in mapping.items():
-                key_path = self.label_to_key.get(label)
-                if key_path and key_path in self.inputs:
-                    self.inputs[key_path].setText(value)
+                if value is not None:
+                    key_path = self.label_to_key.get(label)
+                    if key_path and key_path in self.inputs:
+                        self.inputs[key_path].setText(value)
 
         except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось разобрать ссылку VLESS:\n{e}")
+            self.show_message("Ошибка", f"Не удалось разобрать ссылку VLESS:\n{e}", icon=QMessageBox.Icon.Critical)
+
+    # ----------------- Сообщения -----------------
+    def show_message(self, title, text, icon=QMessageBox.Icon.Information):
+        msg = QMessageBox(self)
+        msg.setIcon(icon)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setStyleSheet("QLabel{color: #000000;} QPushButton{min-width: 80px;}")
+        msg.exec()
+
+    # ----------------- Стили -----------------
+    def apply_styles(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f0f2f5;
+                font-family: Arial;
+                font-size: 12pt;
+            }
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border-radius: 5px;
+                padding: 6px 10px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+        """)
 
 
 if __name__ == "__main__":

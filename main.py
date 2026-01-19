@@ -17,8 +17,12 @@ class FullXrayEditor(QWidget):
         self.config_path = None
         self.config_data = None
         self.inputs = {}
-        # Словарь соответствия label → key_path
         self.label_to_key = {}
+
+        # --- Настройка начального размера окна ---
+        self.resize(200, 500)          # стартовый размер (ширина 900, высота 600)
+        self.setMinimumSize(400, 500)  # минимальный размер
+
         self.init_ui()
 
     def init_ui(self):
@@ -117,6 +121,9 @@ class FullXrayEditor(QWidget):
             self.add_field("ServerName", reality.get("serverName", ""), ["outbounds", 0, "streamSettings", "realitySettings", "serverName"])
             self.add_field("Fingerprint", reality.get("fingerprint", ""), ["outbounds", 0, "streamSettings", "realitySettings", "fingerprint"])
             self.add_field("SPX", reality.get("spx", ""), ["outbounds", 0, "streamSettings", "realitySettings", "spx"])
+
+            # --- Увеличение окна вниз после загрузки файла ---
+            self.resize(self.width(), self.height() + 150)  # увеличиваем высоту на 150px
 
             QMessageBox.information(self, "Готово", "Все поля загружены для редактирования!")
 

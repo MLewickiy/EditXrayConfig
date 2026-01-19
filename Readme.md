@@ -1,4 +1,4 @@
-## Xray Full Config Editor 
+## Xray Config Editor 
 #### Графический инструмент для удобного редактирования config.json файлов Xray Core.
 Основные возможности
 ### 1. Управление Inbounds

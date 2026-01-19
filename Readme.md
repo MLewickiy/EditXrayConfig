@@ -35,3 +35,4 @@ vless://<USER_ID>@<HOST>:<PORT>?type=<NETWORK>&security=<SECURITY>&pbk=<PUBLIC_K
 ### Дополнительно
 - Минимизирует риск ошибок при редактировании конфигурации вручную.
 ![Start](https://github.com/MLewickiy/EditXrayConfig/blob/master/pix/start.png)
+![Start](https://github.com/MLewickiy/EditXrayConfig/blob/master/pix/create.png)

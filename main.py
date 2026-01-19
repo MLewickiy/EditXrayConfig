@@ -20,8 +20,8 @@ class FullXrayEditor(QWidget):
         self.label_to_key = {}
 
         # --- Настройка начального размера окна ---
-        self.resize(200, 500)          # стартовый размер (ширина 900, высота 600)
-        self.setMinimumSize(400, 500)  # минимальный размер
+        self.resize(200, 500)
+        self.setMinimumSize(400, 500)
 
         self.init_ui()
 
@@ -41,6 +41,11 @@ class FullXrayEditor(QWidget):
         paste_button = QPushButton("Вставить из буфера (VLESS)")
         paste_button.clicked.connect(self.paste_vless)
         layout.addWidget(paste_button)
+
+        # Кнопка добавления DNS
+        add_dns_btn = QPushButton("Добавить DNS Server")
+        add_dns_btn.clicked.connect(self.add_dns_field)
+        layout.addWidget(add_dns_btn)
 
         # Scroll для полей
         self.scroll = QScrollArea()
@@ -72,6 +77,40 @@ class FullXrayEditor(QWidget):
         self.inputs[key_path_tuple] = input_field
         self.label_to_key[label_text] = key_path_tuple
 
+    # ----------------- Добавление нового DNS -----------------
+    def add_dns_field(self):
+        if self.config_data is None:
+            QMessageBox.warning(self, "Ошибка", "Сначала откройте config.json")
+            return
+
+        # Создаем секцию dns, если её нет
+        if "dns" not in self.config_data:
+            self.config_data["dns"] = {"servers": []}
+        if "servers" not in self.config_data["dns"]:
+            self.config_data["dns"]["servers"] = []
+
+        # Вставляем новый DNS в начало списка
+        self.config_data["dns"]["servers"].insert(0, "")
+
+        # Перерисовываем все DNS поля в GUI заново
+        self.refresh_dns_fields()
+
+        # Прокрутка вниз, чтобы увидеть новое поле
+        self.scroll.verticalScrollBar().setValue(self.scroll.verticalScrollBar().maximum())
+
+    # ----------------- Обновление DNS полей -----------------
+    def refresh_dns_fields(self):
+        # Удаляем старые поля DNS из GUI
+        for key_path, widget in list(self.inputs.items()):
+            if len(key_path) >= 3 and key_path[0] == "dns" and key_path[1] == "servers":
+                widget.parent().setParent(None)  # удаляем QFrame
+                del self.inputs[key_path]
+
+        # Создаем новые поля DNS в порядке списка
+        dns_servers = self.config_data.get("dns", {}).get("servers", [])
+        for i, server in enumerate(dns_servers):
+            self.add_field(f"DNS Server {i+1}", server, ["dns", "servers", i])
+
     # ----------------- Загрузка -----------------
     def select_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Выберите config.json", "", "JSON Files (*.json)")
@@ -98,6 +137,9 @@ class FullXrayEditor(QWidget):
             self.add_field("Inbound Protocol", inbound.get("protocol", ""), ["inbounds", 0, "protocol"])
             self.add_field("Inbound UDP", inbound.get("settings", {}).get("udp", ""), ["inbounds", 0, "settings", "udp"])
 
+            # --- DNS Servers ---
+            self.refresh_dns_fields()
+
             # --- Outbounds ---
             outbound = self.config_data.get("outbounds", [{}])[0]
             self.add_field("Outbound Protocol", outbound.get("protocol", ""), ["outbounds", 0, "protocol"])
@@ -123,7 +165,7 @@ class FullXrayEditor(QWidget):
             self.add_field("SPX", reality.get("spx", ""), ["outbounds", 0, "streamSettings", "realitySettings", "spx"])
 
             # --- Увеличение окна вниз после загрузки файла ---
-            self.resize(self.width(), self.height() + 150)  # увеличиваем высоту на 150px
+            self.resize(self.width(), self.height() + 150)
 
             QMessageBox.information(self, "Готово", "Все поля загружены для редактирования!")
 
@@ -166,7 +208,6 @@ class FullXrayEditor(QWidget):
             return
 
         try:
-            # Разбираем URL
             scheme, rest = vless_url.split("://", 1)
             user_host, params_hash = rest.split("@", 1)
             user_id = user_host
@@ -199,7 +240,6 @@ class FullXrayEditor(QWidget):
                 "Outbound Protocol": "vless"
             }
 
-            # Обновляем QLineEdit по ключам
             for label, value in mapping.items():
                 key_path = self.label_to_key.get(label)
                 if key_path and key_path in self.inputs:
